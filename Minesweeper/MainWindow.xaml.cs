@@ -13,10 +13,21 @@ namespace Minesweeper
 	public partial class MainWindow : Window
 	{
 		private LevelSettings settings = new LevelSettings(5, 5, 10);
-		private int rowCount = 0;
-		private int columnCount = 0;
 
 		private Cell[,] gameField;
+
+		private Func<int, int, Tuple<int, int>[]> relatedCells =
+			(i, j) => new Tuple<int, int>[]
+			{
+				new Tuple<int, int>(i - 1, j - 1),
+				new Tuple<int, int>(i, j - 1),
+				new Tuple<int, int>(i + 1, j - 1),
+				new Tuple<int, int>(i - 1, j),
+				new Tuple<int, int>(i + 1,j),
+				new Tuple<int, int>(i - 1,j + 1),
+				new Tuple<int, int>(i, j + 1),
+				new Tuple<int, int>(i - 1,j + 1)
+			};
 
 		public MainWindow()
 		{
@@ -112,11 +123,12 @@ namespace Minesweeper
 		private void StartNewGame()
 		{
 			gameField = new Cell[settings.RowCount, settings.ColumnCount];
-			for (int i = 0; i < settings.RowCount; i++)
-				for (int j = 0; j < settings.ColumnCount; j++)
+			for (int i = 0; i < settings.ColumnCount; i++)
+				for (int j = 0; j < settings.RowCount; j++)
 					gameField[i, j] = new Cell();
 
 			PlantMines(settings.MinesCount);
+			SetValues();
 
 			ugr.Children.Clear();
 			rowCount = settings.RowCount;
@@ -180,7 +192,7 @@ namespace Minesweeper
 				var columnIndex = random.Next(availableColumnIndexes.Count);
 				availableColumnIndexes.Remove(columnIndex);
 
-				if (CanMining(rowIndex, columnIndex, settings.RowCount, settings.ColumnCount))
+				if (CanMining(rowIndex, columnIndex))
 				{
 					gameField[rowIndex, columnIndex].Value = 9;
 					count--;
@@ -189,45 +201,59 @@ namespace Minesweeper
 		}
 
 		// Координаты соседних ячеек (i-1, j-1), (i, j-1), (i+1, j-1), (i-1, j), (i+1, j), (i-1, j+1), (i, j+1), (i-1, j+1).
-		private bool CanMining(int i, int j, int rowCount, int columnCount)
+		private bool CanMining(int i, int j)
 		{
+			// Мина уже установлена
 			if (gameField[i, j].Value == 9)
 				return false;
 
-			var related = new Tuple<int, int>[]
+			// Проверка смежных ячеек
+			foreach (var item in relatedCells(i, j))
 			{
-				new Tuple<int, int>(i - 1, j - 1),
-				new Tuple<int, int>(i, j - 1),
-				new Tuple<int, int>(i + 1, j - 1),
-				new Tuple<int, int>(i - 1, j),
-				new Tuple<int, int>(i + 1,j),
-				new Tuple<int, int>(i - 1,j + 1),
-				new Tuple<int, int>(i ,j + 1),
-				new Tuple<int, int>(i - 1,j + 1)
-			};
-
-			return CheckRelatedValues(
-				related,
-				(x, y) => x >= 1 && x <= settings.RowCount - 1 && y >= 1 && y <= settings.ColumnCount - 1);
-		}
-
-		private bool CheckRelatedValues(Tuple<int, int>[] related, Func<int, int, bool> condition)
-		{
-			foreach (var item in related)
-			{
-				if (condition(item.Item1, item.Item2))
+				if (IsItemExists(item.Item1, item.Item2))
 				{
+					// Хотя бы одна ячейка свободна
 					var value = gameField[item.Item2, item.Item2].Value;
 					if (value != 9)
 						return true;
 				}
 			}
+
 			return false;
 		}
 
-		private void SetValue()
-		{ 
-		
+		// Установка значений массива
+		private void SetValues()
+		{
+			for (int i = 0; i < settings.ColumnCount; i++)
+				for (int j = 0; j < settings.ColumnCount; j++)
+					gameField[i, j].Value = CalculateValue(i, j);
+		}
+
+		// Подсчет мин в смежных ячейках
+		private int CalculateValue(int i, int j)
+		{
+			int count = 0;
+
+			foreach (var item in relatedCells(i, j))
+			{
+				if (IsItemExists(item.Item1, item.Item2))
+				{
+					var value = gameField[item.Item2, item.Item2].Value;
+					if (value == 9)
+						count++;
+				}
+			}
+
+			return count;
+		}
+
+		private bool IsItemExists(int i, int j)
+		{
+			return i >= 1 &&
+				i <= settings.RowCount - 1 &&
+				j >= 1 &&
+				j <= settings.ColumnCount - 1;
 		}
 	}
 }
