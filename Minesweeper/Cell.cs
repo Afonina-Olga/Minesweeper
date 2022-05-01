@@ -11,5 +11,9 @@
 
 		// Ячейка отмечена флажком?
 		public bool IsMarked { get; set; } = false;
+
+		public int RowIndex { get; set; }
+
+		public int CellIndex { get; set; }
 	}
 }
