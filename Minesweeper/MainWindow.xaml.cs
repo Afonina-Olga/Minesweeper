@@ -15,11 +15,8 @@ namespace Minesweeper
 	{
 		private bool isGameOver = false;
 		private int flagsCount = 0;
-
 		private LevelSettings settings = new LevelSettings(5, 5, 10);
-
 		private int[,] gameField;
-
 		private readonly Func<int, int, Tuple<int, int>[]> relatedCells =
 			(i, j) => new Tuple<int, int>[]
 			{
@@ -42,16 +39,13 @@ namespace Minesweeper
 		{
 			var button = sender as Button;
 
+			if (button == null)
+				return;
+
 			// Открыть клетку
 			if (e.LeftButton == MouseButtonState.Pressed)
 			{
 				OpenCell(button);
-			}
-
-			// Показать соседние клетки
-			if (e.MiddleButton == MouseButtonState.Pressed)
-			{
-
 			}
 
 			// Пометить флажком
@@ -71,12 +65,8 @@ namespace Minesweeper
 					// Все флаги установлены, проверить правильность
 					if (flagsCount == settings.MinesCount)
 					{
-						if (!isGameOver)
-							OpenCellsIfClosed();
-
-						isGameOver = true;
-						flagsCount = 0;
-
+						OpenCellsIfClosed();
+						
 						if (IsCorrect())
 							MessageBox.Show("Вы выиграли");
 						else
@@ -108,19 +98,8 @@ namespace Minesweeper
 			return true;
 		}
 
-		// Вернуть исходное состояние соседних клеток
-		private void Btn_MouseUp(object sender, MouseButtonEventArgs e)
-		{
-			if (e.MiddleButton == MouseButtonState.Released)
-			{
-			}
-		}
-
 		private void OpenCell(Button button)
 		{
-			if (button == null)
-				return;
-
 			//установка фона нажатой кнопки, цвета и размера шрифта
 			button.Background = Brushes.White;
 			button.FontSize = settings.CellWidth / 2;
@@ -147,7 +126,6 @@ namespace Minesweeper
 			switch (cell.Value)
 			{
 				case 0:
-					// Открыть соседние пустые клетки
 					button.Content = "";
 					break;
 
@@ -190,9 +168,7 @@ namespace Minesweeper
 					SetImage(button, mine);
 
 					// Если нашли мину - открыть все ячейки и закончить игру
-					if (!isGameOver)
-						OpenCellsIfClosed();
-					isGameOver = true;
+					OpenCellsIfClosed();
 					flagsCount = 0;
 					break;
 			};
@@ -200,14 +176,19 @@ namespace Minesweeper
 
 		private void OpenCellsIfClosed()
 		{
-			foreach (var child in ugr.Children)
+			if (!isGameOver)
 			{
-				var button = child as Button;
-				var cell = button.Tag as Cell;
+				foreach (var child in ugr.Children)
+				{
+					var button = child as Button;
+					var cell = button.Tag as Cell;
 
-				if (!cell.IsOpen)
-					OpenCell(button);
+					if (!cell.IsOpen)
+						OpenCell(button);
+				}
 			}
+			isGameOver = true;
+			flagsCount = 0;
 		}
 
 		private void SetImage(Button button, BitmapImage image)
@@ -333,7 +314,6 @@ namespace Minesweeper
 						Margin = new Thickness(2)
 					};
 					btn.PreviewMouseDown += Btn_MouseDown;
-					btn.PreviewMouseUp += Btn_MouseUp;
 					//добавление кнопки в сетку
 					ugr.Children.Add(btn);
 				}
