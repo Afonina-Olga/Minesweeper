@@ -13,23 +13,24 @@ namespace Minesweeper
 	/// </summary>
 	public partial class MainWindow : Window
 	{
+		private bool isGameOver = false;
 		private int flagsCount = 0;
 
 		private LevelSettings settings = new LevelSettings(5, 5, 10);
 
-		private Cell[,] gameField;
+		private int[,] gameField;
 
-		private Func<int, int, Tuple<int, int>[]> relatedCells =
+		private readonly Func<int, int, Tuple<int, int>[]> relatedCells =
 			(i, j) => new Tuple<int, int>[]
 			{
 				new Tuple<int, int>(i - 1, j - 1),
 				new Tuple<int, int>(i, j - 1),
 				new Tuple<int, int>(i + 1, j - 1),
 				new Tuple<int, int>(i - 1, j),
-				new Tuple<int, int>(i + 1,j),
-				new Tuple<int, int>(i - 1,j + 1),
+				new Tuple<int, int>(i + 1, j),
+				new Tuple<int, int>(i - 1, j + 1),
 				new Tuple<int, int>(i, j + 1),
-				new Tuple<int, int>(i - 1,j + 1)
+				new Tuple<int, int>(i + 1, j + 1)
 			};
 
 		public MainWindow()
@@ -56,10 +57,55 @@ namespace Minesweeper
 			// Пометить флажком
 			if (e.RightButton == MouseButtonState.Pressed)
 			{
-				BitmapImage flag = new BitmapImage(new Uri(@"pack://application:,,,/Images/Флаг.png", UriKind.Absolute));
-				button.Background = Brushes.Yellow;
-				SetImage(button, flag);
+				var cell = button.Tag as Cell;
+
+				// Установить флаг
+				if (button.Content == null)
+				{
+					BitmapImage flag = new BitmapImage(new Uri(@"pack://application:,,,/Images/Флаг.png", UriKind.Absolute));
+					button.Background = Brushes.Yellow;
+					SetImage(button, flag);
+					cell.IsMarked = true;
+					flagsCount++;
+
+					// Все флаги установлены, проверить правильность
+					if (flagsCount == settings.MinesCount)
+					{
+						if (!isGameOver)
+							OpenCellsIfClosed();
+
+						isGameOver = true;
+						flagsCount = 0;
+
+						if (IsCorrect())
+							MessageBox.Show("Вы выиграли");
+						else
+							MessageBox.Show("Вы програли");
+
+					}
+				}
+				// Снять флаг
+				else
+				{
+					button.Background = Brushes.LightGray;
+					button.Content = null;
+					cell.IsMarked = false;
+					flagsCount--;
+				}
 			}
+		}
+
+		public bool IsCorrect()
+		{
+			foreach (var child in ugr.Children)
+			{
+				var button = child as Button;
+				var cell = button.Tag as Cell;
+
+				if (cell.Value == 9 && !cell.IsMarked)
+					return false;
+			}
+			return true;
 		}
 
 		// Вернуть исходное состояние соседних клеток
@@ -75,26 +121,33 @@ namespace Minesweeper
 			if (button == null)
 				return;
 
-
 			//установка фона нажатой кнопки, цвета и размера шрифта
 			button.Background = Brushes.White;
-
 			button.FontSize = settings.CellWidth / 2;
-			//запись в нажатую кнопку её номера
+
+			var cell = (Cell)button.Tag;
+			cell.IsOpen = true;
+
 			DrawCellContent(button);
 		}
 
 		private void DrawCellContent(Button button)
 		{
+			if (button == null)
+				return;
+
 			//получение значения лежащего в Tag
 			var cell = (Cell)button.Tag;
 
 			if (cell.Value > 0 && cell.Value < 9)
+			{
 				button.Content = cell.Value;
+			}
 
 			switch (cell.Value)
 			{
 				case 0:
+					// Открыть соседние пустые клетки
 					button.Content = "";
 					break;
 
@@ -135,8 +188,26 @@ namespace Minesweeper
 					BitmapImage mine = new BitmapImage(new Uri(@"pack://application:,,,/Images/Мина.png", UriKind.Absolute));
 					button.Background = Brushes.Red;
 					SetImage(button, mine);
+
+					// Если нашли мину - открыть все ячейки и закончить игру
+					if (!isGameOver)
+						OpenCellsIfClosed();
+					isGameOver = true;
+					flagsCount = 0;
 					break;
 			};
+		}
+
+		private void OpenCellsIfClosed()
+		{
+			foreach (var child in ugr.Children)
+			{
+				var button = child as Button;
+				var cell = button.Tag as Cell;
+
+				if (!cell.IsOpen)
+					OpenCell(button);
+			}
 		}
 
 		private void SetImage(Button button, BitmapImage image)
@@ -221,9 +292,9 @@ namespace Minesweeper
 
 		private void StartNewGame()
 		{
+			isGameOver = false;
 			// Инициализация массива начальными значениями
-			InitArray();
-
+			gameField = new int[settings.RowCount, settings.ColumnCount];
 			// Расстановка мин
 			PlantMines(settings.MinesCount);
 
@@ -247,19 +318,17 @@ namespace Minesweeper
 			Width = ugr.Width + 20;
 			Height = ugr.Height + 60;
 
-			for (int i = 0; i < settings.ColumnCount; i++)
-				for (int j = 0; j < settings.RowCount; j++)
+			for (int i = 0; i < settings.RowCount; i++)
+				for (int j = 0; j < settings.ColumnCount; j++)
 				{
 					//создание кнопки
 					Button btn = new Button
 					{
 						// В Tag записываем элемент массива
-						Tag = gameField[i, j],
+						Tag = new Cell(i, j) { Value = gameField[i, j] },
 						//установка размеров кнопки
 						Width = settings.CellWidth,
 						Height = settings.CellHeight,
-						//текст на кнопке
-						Content = " ",
 						//толщина границ кнопки
 						Margin = new Thickness(2)
 					};
@@ -268,14 +337,6 @@ namespace Minesweeper
 					//добавление кнопки в сетку
 					ugr.Children.Add(btn);
 				}
-		}
-
-		private void InitArray()
-		{
-			gameField = new Cell[settings.RowCount, settings.ColumnCount];
-			for (int i = 0; i < settings.ColumnCount; i++)
-				for (int j = 0; j < settings.RowCount; j++)
-					gameField[i, j] = new Cell();
 		}
 
 		private void NewGame_Click(object sender, RoutedEventArgs e)
@@ -310,7 +371,7 @@ namespace Minesweeper
 
 				if (CanMining(rowIndex, columnIndex))
 				{
-					gameField[rowIndex, columnIndex].Value = 9;
+					gameField[rowIndex, columnIndex] = 9;
 					count--;
 				}
 			}
@@ -320,7 +381,7 @@ namespace Minesweeper
 		private bool CanMining(int i, int j)
 		{
 			// Мина уже установлена
-			if (gameField[i, j].Value == 9)
+			if (gameField[i, j] == 9)
 				return false;
 
 			// Проверка смежных ячеек
@@ -329,7 +390,7 @@ namespace Minesweeper
 				if (IsItemExists(item.Item1, item.Item2))
 				{
 					// Хотя бы одна ячейка свободна
-					var value = gameField[item.Item1, item.Item2].Value;
+					var value = gameField[item.Item1, item.Item2];
 					if (value != 9)
 						return true;
 				}
@@ -341,24 +402,23 @@ namespace Minesweeper
 		// Установка значений массива
 		private void SetValues()
 		{
-			for (int i = 0; i < settings.ColumnCount; i++)
+			for (int i = 0; i < settings.RowCount; i++)
 				for (int j = 0; j < settings.ColumnCount; j++)
-					gameField[i, j].Value = CalculateValue(i, j);
+					if (gameField[i, j] != 9)
+					{
+						gameField[i, j] = CalculateValue(i, j);
+					}
 		}
 
 		// Подсчет мин в смежных ячейках
 		private int CalculateValue(int i, int j)
 		{
 			int count = 0;
-
-			if (gameField[i, j].Value == 9)
-				return 9;
-
 			foreach (var item in relatedCells(i, j))
 			{
 				if (IsItemExists(item.Item1, item.Item2))
 				{
-					var value = gameField[item.Item1, item.Item2].Value;
+					var value = gameField[item.Item1, item.Item2];
 					if (value == 9)
 						count++;
 				}
@@ -369,10 +429,10 @@ namespace Minesweeper
 
 		private bool IsItemExists(int i, int j)
 		{
-			return i >= 1 &&
-				i <= settings.RowCount - 1 &&
-				j >= 1 &&
-				j <= settings.ColumnCount - 1;
+			return i >= 0 &&
+				i < settings.RowCount &&
+				j >= 0 &&
+				j < settings.ColumnCount;
 		}
 	}
 }

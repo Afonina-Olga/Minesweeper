@@ -14,6 +14,13 @@
 
 		public int RowIndex { get; set; }
 
-		public int CellIndex { get; set; }
+		public int ColumnlIndex { get; set; }
+
+		public Cell(int rowIndex, int columnIndex)
+		{
+			RowIndex = rowIndex;
+			ColumnlIndex = columnIndex;
+		}
+
 	}
 }
