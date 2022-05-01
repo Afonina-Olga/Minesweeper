@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using System;
+using System.Linq;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -14,14 +16,12 @@ namespace Minesweeper
 		private int rowCount = 0;
 		private int columnCount = 0;
 
-		private int[,] field;
+		private Cell[,] gameField;
 
 		public MainWindow()
 		{
 			InitializeComponent();
 		}
-
-		public int[,] Field { get => field; set => field = value; }
 
 		private void Btn_Click(object sender, RoutedEventArgs e)
 		{
@@ -111,6 +111,13 @@ namespace Minesweeper
 
 		private void StartNewGame()
 		{
+			gameField = new Cell[settings.RowCount, settings.ColumnCount];
+			for (int i = 0; i < settings.RowCount; i++)
+				for (int j = 0; j < settings.ColumnCount; j++)
+					gameField[i, j] = new Cell();
+
+			PlantMines(settings.MinesCount);
+
 			ugr.Children.Clear();
 			rowCount = settings.RowCount;
 			columnCount = settings.ColumnCount;
@@ -148,9 +155,79 @@ namespace Minesweeper
 			StartNewGame();
 		}
 
-		private void PlantMines(int mines)
+		// Алгоритм работы функции будет выглядеть следующим образом:
+		// 1.	Выбрать в пределах поля случайную ячейку.
+		// 2.	Проверить, что в этой ячейке ещё нет мины (если есть, вернуться к шагу 1).
+		// 3.	Проверить, что рядом с этой ячейкой есть хотя бы одна пустая(если нет, вернуться к шагу 1).
+		// 4.	Разместить в выбранной ячейке мину(записать в массив 9).
+		private void PlantMines(int count)
 		{
-			//реализация функции
+			// Генератор случайных чисел
+			var random = new Random();
+			var availableColumnIndexes = Enumerable.Range(1, settings.ColumnCount).ToList();
+			var availableRowIndexes = Enumerable.Range(1, settings.RowCount).ToList();
+
+			// Условие завершения цикла
+			// 1. Все мины расставлены (count = 0)
+			// 2. Все ячейки пройдены (availableColumnIndexes и availableRowIndexes не содержат элементов)
+			while (count != 0 || (!availableRowIndexes.Any() && !availableColumnIndexes.Any()))
+			{
+				// Случайный индекс строки
+				var rowIndex = random.Next(availableRowIndexes.Count);
+				availableRowIndexes.Remove(rowIndex);
+
+				// Случайный индекс колонки
+				var columnIndex = random.Next(availableColumnIndexes.Count);
+				availableColumnIndexes.Remove(columnIndex);
+
+				if (CanMining(rowIndex, columnIndex, settings.RowCount, settings.ColumnCount))
+				{
+					gameField[rowIndex, columnIndex].Value = 9;
+					count--;
+				}
+			}
+		}
+
+		// Координаты соседних ячеек (i-1, j-1), (i, j-1), (i+1, j-1), (i-1, j), (i+1, j), (i-1, j+1), (i, j+1), (i-1, j+1).
+		private bool CanMining(int i, int j, int rowCount, int columnCount)
+		{
+			if (gameField[i, j].Value == 9)
+				return false;
+
+			var related = new Tuple<int, int>[]
+			{
+				new Tuple<int, int>(i - 1, j - 1),
+				new Tuple<int, int>(i, j - 1),
+				new Tuple<int, int>(i + 1, j - 1),
+				new Tuple<int, int>(i - 1, j),
+				new Tuple<int, int>(i + 1,j),
+				new Tuple<int, int>(i - 1,j + 1),
+				new Tuple<int, int>(i ,j + 1),
+				new Tuple<int, int>(i - 1,j + 1)
+			};
+
+			return CheckRelatedValues(
+				related,
+				(x, y) => x >= 1 && x <= settings.RowCount - 1 && y >= 1 && y <= settings.ColumnCount - 1);
+		}
+
+		private bool CheckRelatedValues(Tuple<int, int>[] related, Func<int, int, bool> condition)
+		{
+			foreach (var item in related)
+			{
+				if (condition(item.Item1, item.Item2))
+				{
+					var value = gameField[item.Item2, item.Item2].Value;
+					if (value != 9)
+						return true;
+				}
+			}
+			return false;
+		}
+
+		private void SetValue()
+		{ 
+		
 		}
 	}
 }
