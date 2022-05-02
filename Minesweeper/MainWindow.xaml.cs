@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -17,18 +18,6 @@ namespace Minesweeper
 		private int flagsCount = 0;
 		private LevelSettings settings = new LevelSettings(5, 5, 10);
 		private int[,] gameField;
-		private readonly Func<int, int, Tuple<int, int>[]> relatedCells =
-			(i, j) => new Tuple<int, int>[]
-			{
-				new Tuple<int, int>(i - 1, j - 1),
-				new Tuple<int, int>(i, j - 1),
-				new Tuple<int, int>(i + 1, j - 1),
-				new Tuple<int, int>(i - 1, j),
-				new Tuple<int, int>(i + 1, j),
-				new Tuple<int, int>(i - 1, j + 1),
-				new Tuple<int, int>(i, j + 1),
-				new Tuple<int, int>(i + 1, j + 1)
-			};
 
 		public MainWindow()
 		{
@@ -56,7 +45,7 @@ namespace Minesweeper
 				// Установить флаг
 				if (button.Content == null)
 				{
-					BitmapImage flag = new BitmapImage(new Uri(@"pack://application:,,,/Images/Флаг.png", UriKind.Absolute));
+					BitmapImage flag = new BitmapImage(new Uri(@"pack://application:,,,/Images/flag.png", UriKind.Absolute));
 					button.Background = Brushes.Yellow;
 					SetImage(button, flag);
 					cell.IsMarked = true;
@@ -66,7 +55,7 @@ namespace Minesweeper
 					if (flagsCount == settings.MinesCount)
 					{
 						OpenCellsIfClosed();
-						
+
 						if (IsCorrect())
 							MessageBox.Show("Вы выиграли");
 						else
@@ -163,7 +152,7 @@ namespace Minesweeper
 
 				case 9:
 					//создание и инициализация глобальной переменной для хранения изображения мины
-					BitmapImage mine = new BitmapImage(new Uri(@"pack://application:,,,/Images/Мина.png", UriKind.Absolute));
+					BitmapImage mine = new BitmapImage(new Uri(@"pack://application:,,,/Images/mine.png", UriKind.Absolute));
 					button.Background = Brushes.Red;
 					SetImage(button, mine);
 
@@ -333,8 +322,8 @@ namespace Minesweeper
 		{
 			// Генератор случайных чисел
 			var random = new Random();
-			var availableColumnIndexes = Enumerable.Range(1, settings.ColumnCount).ToList();
-			var availableRowIndexes = Enumerable.Range(1, settings.RowCount).ToList();
+			var availableColumnIndexes = GetRange(settings.ColumnCount);
+			var availableRowIndexes = GetRange(settings.RowCount);
 
 			// Условие завершения цикла
 			// 1. Все мины расставлены (count = 0)
@@ -357,6 +346,16 @@ namespace Minesweeper
 			}
 		}
 
+		private List<int> GetRange(int maxValue)
+		{
+			var result = new List<int>();
+			for (int i = 0; i < maxValue; i++)
+			{
+				result.Add(i);
+			}
+			return result;
+		}
+
 		// Координаты соседних ячеек (i-1, j-1), (i, j-1), (i+1, j-1), (i-1, j), (i+1, j), (i-1, j+1), (i, j+1), (i-1, j+1).
 		private bool CanMining(int i, int j)
 		{
@@ -364,19 +363,46 @@ namespace Minesweeper
 			if (gameField[i, j] == 9)
 				return false;
 
+			var items = GetRelatedCells(i, j);
+
 			// Проверка смежных ячеек
-			foreach (var item in relatedCells(i, j))
+			foreach (var item in items)
 			{
-				if (IsItemExists(item.Item1, item.Item2))
+				if (IsItemExists(item.I, item.J))
 				{
 					// Хотя бы одна ячейка свободна
-					var value = gameField[item.Item1, item.Item2];
+					var value = gameField[item.I, item.J];
 					if (value != 9)
 						return true;
 				}
 			}
 
 			return false;
+		}
+
+		private List<Item> GetRelatedCells(int i, int j)
+		{
+			var result = new List<Item>()
+			{
+				new Item(i - 1, j - 1),
+				new Item(i, j - 1),
+				new Item(i + 1, j - 1),
+				new Item(i - 1, j),
+				new Item(i + 1, j),
+				new Item(i - 1, j + 1),
+				new Item(i, j + 1),
+				new Item(i + 1, j + 1)
+			};
+
+			return result;
+		}
+
+		private bool IsItemExists(int i, int j)
+		{
+			return i >= 0 &&
+				i < settings.RowCount &&
+				j >= 0 &&
+				j < settings.ColumnCount;
 		}
 
 		// Установка значений массива
@@ -394,25 +420,17 @@ namespace Minesweeper
 		private int CalculateValue(int i, int j)
 		{
 			int count = 0;
-			foreach (var item in relatedCells(i, j))
+			foreach (var item in GetRelatedCells(i, j))
 			{
-				if (IsItemExists(item.Item1, item.Item2))
+				if (IsItemExists(item.I, item.J))
 				{
-					var value = gameField[item.Item1, item.Item2];
+					var value = gameField[item.I, item.J];
 					if (value == 9)
 						count++;
 				}
 			}
 
 			return count;
-		}
-
-		private bool IsItemExists(int i, int j)
-		{
-			return i >= 0 &&
-				i < settings.RowCount &&
-				j >= 0 &&
-				j < settings.ColumnCount;
 		}
 	}
 }
